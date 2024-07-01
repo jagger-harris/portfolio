@@ -107,12 +107,14 @@ p {
   display: flex;
   align-items: center;
   margin-bottom: 2.5rem;
+  font-size: 2rem;
 }
 
 #cursor {
   display: inline-block;
   background-color: var(--text-color);
   animation: blink 1s infinite;
+  height: 2rem;
 }
 
 #cursor.typing {
