@@ -1,0 +1,117 @@
+/* Variables */
+:root {
+  --background-color: #000a22;
+  --text-color: #eeebed;
+  --accent-color: #0088ff;
+  --gradient-start: transparent;
+}
+
+/* Global styles */
+::selection {
+  background: var(--accent-color);
+  color: var(--text-color);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: "Inconsolata", monospace;
+  font-optical-sizing: auto;
+  font-weight: 500;
+  font-style: normal;
+  font-variation-settings: "wdth" 112.5;
+  font-size: 1.125rem;
+  background-color: var(--background-color);
+  margin: 0;
+  padding: 0;
+  color: var(--text-color);
+}
+
+/* Headings */
+h1,
+h2,
+h3 {
+  font-weight: 500;
+  padding: 0;
+  margin: 0;
+}
+
+h1 {
+  font-size: 4rem;
+}
+
+h2 {
+  font-size: 2.5rem;
+}
+
+h3 {
+  font-size: 2rem;
+}
+
+p {
+  line-height: 1.5rem;
+  font-weight: 500;
+  font-size: 1.25rem;
+  padding: 0;
+  margin: 0;
+}
+
+/* Container for margins and padding */
+#container {
+  margin: 0 auto;
+  width: 64rem;
+  padding-top: 16rem;
+}
+
+/* Secondary highlight */
+.secondary-highlight {
+  color: var(--accent-color);
+}
+
+/* Divider strokes */
+.divider-stroke-blue {
+  background-image: linear-gradient(
+    to right,
+    var(--gradient-start),
+    var(--accent-color),
+    var(--gradient-start)
+  );
+  padding: 0.1rem;
+}
+
+.divider-stroke-white {
+  background-image: linear-gradient(
+    to right,
+    var(--gradient-start),
+    var(--text-color),
+    var(--gradient-start)
+  );
+  padding: 0.1rem;
+}
+
+/* Icon button */
+.icon-button {
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  text-decoration: none;
+  color: var(--text-color);
+  border-color: var(--accent-color);
+  border-style: solid;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.icon-button:hover {
+  background-color: var(--accent-color);
+}
+
+.svg-button {
+  width: 2rem;
+  height: 2rem;
+  pointer-events: none;
+}
