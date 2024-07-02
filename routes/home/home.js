@@ -13,10 +13,13 @@
   const deletingSpeed = 50;
   const delayBetweenMessages = 6000;
 
-  typingTextElement.textContent = messages[currentMessageIndex];
-
   function type() {
+    if (!typingTextElement || !cursorElement) {
+      return;
+    }
+
     cursorElement.classList.add("typing");
+    
     if (charIndex < messages[currentMessageIndex].length) {
       typingTextElement.textContent +=
         messages[currentMessageIndex].charAt(charIndex);

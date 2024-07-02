@@ -37,19 +37,19 @@ async function loadComponent(componentElement, componentId, componentPath) {
     .split("/")
     .pop()}`;
 
-  try {
-    /* Fetch HTML */
-    const response = await fetch(`${componentFilesPath}.html`);
-    if (!response.ok) {
-      throw new Error(`Failed to load HTML for ${componentId}`);
-    }
-    const html = await response.text();
+  if (componentCache.has(componentPath)) {
+    unloadPreviousResources(componentPath);
+    loadComponentResources(componentFilesPath);
 
-    /* Create component */
+    return componentCache.get(componentPath);
+  }
+
+  try {
+    const html = await fetchHTML(componentFilesPath);
+
     const component = document.createElement(componentElement);
     component.id = componentId;
 
-    /* Parse and insert HTML into the component */
     const fragment = document.createDocumentFragment();
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
@@ -61,50 +61,53 @@ async function loadComponent(componentElement, componentId, componentPath) {
 
     component.appendChild(fragment);
 
-    /* Unload previous page's CSS */
-    const links = document.head.querySelectorAll("link[rel='stylesheet']");
+    unloadPreviousResources(componentPath);
+    loadComponentResources(componentFilesPath);
 
-    for (let i = 0; i < links.length; i++) {
-      const link = links[i];
-
-      if (link.href && link.href.includes(`${componentPath}/`)) {
-        link.remove();
-      }
-    }
-
-    /* Unload previous page's scripts */
-    const scripts = document.body.querySelectorAll("script");
-
-    for (let i = 0; i < scripts.length; i++) {
-      const script = scripts[i];
-
-      if (script.src && script.src.includes(`${componentPath}/`)) {
-        script.remove();
-      }
-    }
-
-    /* Load component CSS if it doesn't exist */
-    if (!document.querySelector(`link[href="${componentFilesPath}.css"]`)) {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = `${componentFilesPath}.css`;
-
-      document.head.appendChild(link);
-    }
-
-    /* Load component JS if it doesn't exist */
-    if (!document.querySelector(`script[src="${componentFilesPath}.js"]`)) {
-      const script = document.createElement("script");
-      script.type = "text/javascript";
-      script.src = `${componentFilesPath}.js`;
-
-      document.body.appendChild(script);
-    }
+    componentCache.set(componentPath, component);
 
     return component;
   } catch (error) {
     console.error(`Failed to load component ${componentId}:`, error);
     return null;
+  }
+}
+
+async function fetchHTML(componentFilesPath) {
+  const response = await fetch(`${componentFilesPath}.html`);
+  if (!response.ok) {
+    throw new Error(`Failed to load HTML for ${componentFilesPath}`);
+  }
+  return await response.text();
+}
+
+function unloadPreviousResources(componentPath) {
+  const links = document.querySelectorAll(
+    "link[rel='preload stylesheet'], link[rel='stylesheet']"
+  );
+
+  for (let i = 0; i < links.length; i++) {
+    const link = links[i];
+
+    if (link.href && link.href.includes(`${componentPath}/`)) {
+      link.remove();
+    }
+  }
+}
+
+function loadComponentResources(componentFilesPath) {
+  if (!document.head.querySelector(`link[href="${componentFilesPath}.css"]`)) {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = `${componentFilesPath}.css`;
+    document.head.appendChild(link);
+  }
+
+  if (!document.body.querySelector(`script[src="${componentFilesPath}.js"]`)) {
+    const script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src = `${componentFilesPath}.js`;
+    document.body.appendChild(script);
   }
 }
 
@@ -115,10 +118,9 @@ const routes = {
 };
 
 function router() {
-  const app = document.getElementById("app");
+  const app = document.querySelector("main");
   const path = window.location.hash.substring(1) || "/";
 
-  /* Allows scrolling to tags within the same page */
   const targetElement = document.getElementById(path);
   if (targetElement) {
     targetElement.scrollIntoView();
@@ -132,22 +134,18 @@ function router() {
 
   Promise.all([pagePromise, navbarPromise])
     .then(([page, navbar]) => {
-      while (app.firstChild) {
-        app.removeChild(app.firstChild);
-      }
+      requestAnimationFrame(() => {
+        while (app.firstChild) {
+          app.removeChild(app.firstChild);
+        }
 
-      const fragment = document.createDocumentFragment();
+        const fragment = document.createDocumentFragment();
+        if (navbar) fragment.appendChild(navbar);
+        if (page) fragment.appendChild(page);
 
-      if (navbar) {
-        fragment.appendChild(navbar);
-      }
-
-      if (page) {
-        fragment.appendChild(page);
-      }
-
-      app.appendChild(fragment);
-      colorSvgs();
+        app.appendChild(fragment);
+        colorSvgs();
+      });
     })
     .catch((error) => {
       console.error("Error loading components:", error);
@@ -158,5 +156,7 @@ function start() {
   window.addEventListener("hashchange", router);
   router();
 }
+
+const componentCache = new Map();
 
 document.addEventListener("DOMContentLoaded", start);

@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy" content="style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;">
+    <meta
+      name="description"
+      content="Jagger Harris' portfolio website for showcasing work and other things."
+    />
     <title>Jagger Harris - Software Developer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -13,11 +16,18 @@
       media="print"
       onload="this.media='all'"
     />
-    <link rel="stylesheet" href="css/styles.css" />
+    <link href="css/styles.css" rel="preload stylesheet" as="style" />
+    <link
+      href="components/navbar/navbar.css"
+      rel="preload stylesheet"
+      as="style"
+    />
+    <link href="routes/home/home.css" rel="preload stylesheet" as="style" />
+    <link rel="preload" href="js/index.js" as="script" />
+    <script src="js/index.js"></script>
   </head>
 
   <body>
-    <div id="app"></div>
-    <script src="js/index.js"></script>
+    <main></main>
   </body>
 </html>
