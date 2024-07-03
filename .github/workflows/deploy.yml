@@ -40,7 +40,7 @@ jobs:
       - name: Run HTML Minifier Terser
         run: |
           for file in $(find ./src -name "*.html"); do
-            html-minifier-terser "$file" --collapse-whitespace --remove-comments --minify-js true --minify-css true -o ./src
+            html-minifier-terser "$file" --collapse-whitespace --remove-comments --minify-js true --minify-css true -o "$file"
           done
 
       - name: Setup Pages
