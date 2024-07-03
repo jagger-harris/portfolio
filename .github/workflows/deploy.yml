@@ -34,13 +34,13 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install Minify
-        run: npm install minify -g
+      - name: Install HTML Minifier Terser
+        run: npm install terser -g
 
-      - name: Run Minify
+      - name: Run Terser
         run: |
-          for file in $(find ./src \( -name "*.html" -o -name "*.js" -o -name "*.css" \)); do
-            minify --auto "$file" > "$file"
+          for file in $(find ./src -name "*.js"); do
+            terser "$file" --compress --mangle --output "$file"
           done
 
       - name: Setup Pages
