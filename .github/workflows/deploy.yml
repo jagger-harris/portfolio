@@ -39,7 +39,7 @@ jobs:
 
       - name: Run HTML Minifier Terser
         run: |
-          for file in $(find ./src -name "*.js"); do
+          for file in $(find ./src -name "*.html"); do
             html-minifier-terser "$file" --collapse-whitespace --remove-comments --minify-js true --minify-css true
           done
 
