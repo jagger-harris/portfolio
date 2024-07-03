@@ -39,7 +39,9 @@ jobs:
 
       - name: Run HTML Minifier Terser
         run: |
-          html-minifier-terser --collapse-whitespace --remove-comments --minify-js true --minify-css true
+          for file in $(find ./src -name "*.js"); do
+            html-minifier-terser "$file" --collapse-whitespace --remove-comments --minify-js true --minify-css true
+          done
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
