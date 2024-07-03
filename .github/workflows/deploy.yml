@@ -38,7 +38,10 @@ jobs:
         run: npm install terser -g
 
       - name: Run Terser
-        run: terser ./src/**/*.js -o ./src/minified --compress --mangle
+        run: |
+          for file in $(find ./src -name "*.js"); do
+            terser "$file" --compress --mangle --output "$file"
+          done
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
