@@ -32,16 +32,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "16"
+          node-version: "20"
 
-      - name: Install Terser
-        run: npm install terser -g
+      - name: Install HTML Minifier Terser
+        run: npm install html-minifier-terser -g
 
-      - name: Run Terser
+      - name: Run HTML Minifier Terser
         run: |
-          for file in $(find ./src -name "*.js"); do
-            terser "$file" --compress --mangle --output "$file"
-          done
+          html-minifier-terser --collapse-whitespace --remove-comments --minify-js true --minify-css true
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
