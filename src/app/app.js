@@ -10,7 +10,7 @@ class Component {
     this.script = null;
   }
 
-  async fetchHTML(fullPath) {
+  static async fetchHTML(fullPath) {
     const response = await fetch(`${fullPath}.html`);
 
     if (!response.ok) {
@@ -67,16 +67,16 @@ class Component {
     }
 
     try {
-      const html = await this.fetchHTML(this.fullPath);
+      const html = await Component.fetchHTML(this.fullPath);
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, "text/html");
       const nodes = doc.body.childNodes;
-      const fragment = document.createDocumentFragment();
+      const documentFragment = document.createDocumentFragment();
       const component = document.createElement(this.tag);
       component.id = this.id;
 
-      nodes.forEach((node) => fragment.appendChild(node));
-      component.appendChild(fragment);
+      nodes.forEach((node) => documentFragment.appendChild(node));
+      component.appendChild(documentFragment);
       this.component = component;
 
       await this.loadCSS();
@@ -160,6 +160,33 @@ class App {
     await Promise.all(colorPromises);
   }
 
+  async addComponent(path, id, tag, persistent, documentFragment) {
+    try {
+      if (this.cachedComponents.has(path)) {
+        const cachedComponent = this.cachedComponents.get(path);
+
+        if (!persistent) {
+          await cachedComponent.load(true);
+          documentFragment.appendChild(cachedComponent.component);
+        }
+
+        this.loadedComponents.set(cachedComponent.path, cachedComponent);
+        return true;
+      }
+
+      const component = new Component(path, id, tag, persistent);
+      await component.load();
+
+      documentFragment.appendChild(component.component);
+      this.loadedComponents.set(component.path, component);
+      this.cachedComponents.set(component.path, component);
+
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
   async loadPage(path) {
     /* Check if id exists for scrollTo */
     const targetElement = document.getElementById(path);
@@ -173,55 +200,41 @@ class App {
 
     await this.unloadPage();
 
-    const fragment = document.createDocumentFragment();
+    const documentFragment = document.createDocumentFragment();
     const mainElement = document.querySelector("main");
 
-    try {
-      if (this.cachedComponents.has("components/navbar")) {
-        const cachedComponent = this.cachedComponents.get("components/navbar");
-        this.loadedComponents.set(cachedComponent.path, cachedComponent);
-      } else {
-        const navbar = new Component(
-          "components/navbar",
-          "navbar",
-          "nav",
-          true
-        );
-        await navbar.load();
+    await this.addComponent(
+      "components/navbar",
+      "navbar",
+      "nav",
+      true,
+      documentFragment
+    );
 
-        if (navbar) {
-          fragment.appendChild(navbar.component);
-        }
+    let pageComponent = await this.addComponent(
+      this.routes[path],
+      "container",
+      "div",
+      false,
+      documentFragment
+    );
 
-        this.loadedComponents.set(navbar.path, navbar);
-        this.cachedComponents.set(navbar.path, navbar);
+    if (!pageComponent) {
+      let notFoundComponent = await this.addComponent(
+        "routes/notfound",
+        "container",
+        "div",
+        false,
+        documentFragment
+      );
+
+      if (!notFoundComponent) {
+        console.error("Error: Page not found component unable to load!");
       }
-
-      if (this.cachedComponents.has(this.routes[path])) {
-        const cachedComponent = this.cachedComponents.get(this.routes[path]);
-        await cachedComponent.load(true);
-        fragment.appendChild(cachedComponent.component);
-        this.loadedComponents.set(cachedComponent.path, cachedComponent);
-      } else {
-        const page = this.routes[path]
-          ? new Component(this.routes[path], "container", "div")
-          : new Component("routes/notfound", "container", "div");
-
-        await page.load();
-
-        if (page) {
-          fragment.appendChild(page.component);
-        }
-
-        this.loadedComponents.set(page.path, page);
-        this.cachedComponents.set(page.path, page);
-      }
-
-      mainElement.appendChild(fragment);
-      await this.colorSvgs();
-    } catch (error) {
-      console.error("Error loading components:", error);
     }
+
+    mainElement.appendChild(documentFragment);
+    this.colorSvgs();
   }
 
   async unloadPage() {
@@ -259,5 +272,5 @@ class App {
   }
 }
 
-const app = new App();
+var app = new App();
 document.addEventListener("DOMContentLoaded", async () => await app.run());
