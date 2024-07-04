@@ -1,76 +1,98 @@
-(function () {
-  class HomeJS {
-    constructor() {
-      this.execute = true;
-    }
-
-    run() {
-      const self = this;
-
-      const messages = [
-        "I enjoy making open source software.",
-        "I enjoy making things from scratch.",
-        "I enjoy being a software developer."
-      ];
-      let currentMessageIndex = 0;
-      let charIndex = messages[currentMessageIndex].length;
-      const typingTextElement = document.getElementById("typing-text");
-      const cursorElement = document.getElementById("cursor");
-      const typingSpeed = 100;
-      const deletingSpeed = 50;
-      const delayBetweenmessages = 6000;
-
-      function type() {
-        if (!self.execute) {
-          typingTextElement.textContent = messages[0];
-          return;
-        }
-
-        if (!typingTextElement || !cursorElement) {
-          return;
-        }
-
-        cursorElement.classList.add("typing");
-
-        if (charIndex < messages[currentMessageIndex].length) {
-          typingTextElement.textContent +=
-            messages[currentMessageIndex].charAt(charIndex);
-          charIndex++;
-          setTimeout(type, typingSpeed);
-        } else {
-          cursorElement.classList.remove("typing");
-          setTimeout(deleteText, delayBetweenmessages);
-        }
-      }
-
-      function deleteText() {
-        if (!self.execute) {
-          typingTextElement.textContent = messages[0];
-          return;
-        }
-
-        cursorElement.classList.add("typing");
-        if (charIndex > 0) {
-          typingTextElement.textContent = messages[
-            currentMessageIndex
-          ].substring(0, charIndex - 1);
-          charIndex--;
-          setTimeout(deleteText, deletingSpeed);
-        } else {
-          cursorElement.classList.remove("typing");
-          currentMessageIndex = (currentMessageIndex + 1) % messages.length;
-          setTimeout(type, typingSpeed);
-        }
-      }
-
-      this.typeTimeout = setTimeout(type, typingSpeed);
-    }
-
-    stop() {
-      this.execute = false;
-      clearTimeout(this.typeTimeout);
-    }
+var HomeScript = class {
+  constructor() {
+    this.timeouts = [];
   }
 
-  window.homeJS = new HomeJS();
-})();
+  addTimeout(timeout) {
+    this.timeouts.push(timeout);
+  }
+
+  run() {
+    const messages = [
+      "I enjoy making open source software.",
+      "I enjoy making things from scratch.",
+      "I enjoy being a software developer."
+    ];
+
+    let delay = 6000;
+    let typingSpeed = 100;
+    let deletingSpeed = 50;
+    let currentMessageIndex = 0;
+    let charIndex = messages[currentMessageIndex].length;
+
+    const typingMessageElement = document.getElementById("typing-message");
+    const cursorElement = document.getElementById("cursor");
+
+    if (!typingMessageElement || !cursorElement) {
+      return;
+    }
+
+    const resetMessage = () => {
+      typingMessageElement.innerText = messages[0];
+    };
+
+    const typeMessage = async () => {
+      cursorElement.classList.add("typing");
+      await deleteChars();
+      await typeChars();
+      cursorElement.classList.remove("typing");
+      this.addTimeout(setTimeout(typeMessage, delay));
+    };
+
+    const typeChars = () => {
+      return new Promise((resolve) => {
+        const typeNextChar = () => {
+          typingMessageElement.innerText +=
+            messages[currentMessageIndex].charAt(charIndex);
+          charIndex++;
+
+          if (charIndex <= messages[currentMessageIndex].length) {
+            this.addTimeout(setTimeout(typeNextChar, typingSpeed));
+          } else {
+            resolve();
+          }
+        };
+
+        typeNextChar();
+      });
+    };
+
+    const deleteChars = () => {
+      return new Promise((resolve) => {
+        const deleteNextChar = () => {
+          typingMessageElement.innerText = typingMessageElement.innerText.slice(
+            0,
+            -1
+          );
+          charIndex--;
+
+          if (charIndex >= 0) {
+            this.addTimeout(setTimeout(deleteNextChar, deletingSpeed));
+          } else {
+            currentMessageIndex = (currentMessageIndex + 1) % messages.length;
+            charIndex = 0;
+            resolve();
+          }
+        };
+
+        deleteNextChar();
+      });
+    };
+
+    resetMessage();
+    this.addTimeout(setTimeout(typeMessage, delay));
+  }
+
+  cleanup() {
+    this.timeouts.forEach((timeout) => clearTimeout(timeout));
+    this.timeouts = null;
+
+    let typingMessageElement = document.getElementById("typing-message");
+    typingMessageElement.innerText = "I enjoy making open source software.";
+
+    let cursorElement = document.getElementById("cursor");
+    cursorElement.classList.remove("typing");
+  }
+};
+
+var homeScript = new HomeScript();

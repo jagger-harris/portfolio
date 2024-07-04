@@ -7,7 +7,7 @@ class Component {
     this.persistent = persistent;
     this.component = null;
     this.css = null;
-    this.js = null;
+    this.script = null;
   }
 
   async fetchHTML(fullPath) {
@@ -39,19 +39,19 @@ class Component {
     });
   }
 
-  loadJS() {
+  loadScript() {
     const script = document.createElement("script");
     script.type = "text/javascript";
     script.src = `${this.fullPath}.js`;
     script.onload = () => {
-      this.js = window[`${this.fullPath.split("/").pop()}JS`];
+      this.script = window[`${this.fullPath.split("/").pop()}Script`];
 
-      if (this.js && typeof this.js.run === "function") {
-        this.js.run();
+      if (this.script && typeof this.script.run === "function") {
+        this.script.run();
       }
     };
 
-    this.jsElement = script;
+    this.scriptElement = script;
     document.body.appendChild(script);
   }
 
@@ -61,7 +61,7 @@ class Component {
         document.head.appendChild(this.css);
       }
 
-      this.loadJS();
+      this.loadScript();
 
       return;
     }
@@ -75,23 +75,31 @@ class Component {
       const component = document.createElement(this.tag);
       component.id = this.id;
 
-      for (let i = 0; i < nodes.length; i++) {
-        fragment.appendChild(nodes[i]);
-      }
-
+      nodes.forEach((node) => fragment.appendChild(node));
       component.appendChild(fragment);
       this.component = component;
 
       await this.loadCSS();
-      this.loadJS();
+      this.loadScript();
     } catch (error) {
       console.error(`Failed to load component ${this.id}:`, error);
     }
   }
 
   async unload() {
-    if (this.persistent) {
-      return;
+    if (this.script) {
+      let scriptName = this.fullPath.split("/").pop();
+      this.script.execute = false;
+
+      if (this.script.cleanup) {
+        this.script.cleanup();
+      }
+
+      this.script = null;
+      window[
+        `${scriptName.charAt(0).toUpperCase() + scriptName.substring(1)}Script`
+      ] = null;
+      window[`${scriptName}Script`] = null;
     }
 
     if (this.component) {
@@ -102,9 +110,8 @@ class Component {
       this.css.remove();
     }
 
-    if (this.js) {
-      this.js.execute = false;
-      this.js = null;
+    if (this.scriptElement) {
+      this.scriptElement.remove();
     }
   }
 }
@@ -148,9 +155,7 @@ class App {
 
     const colorPromises = [];
 
-    for (let i = 0; i < svgObjects.length; i++) {
-      colorPromises.push(colorSvg(svgObjects[i]));
-    }
+    svgObjects.forEach((svgObject) => colorPromises.push(colorSvg(svgObject)));
 
     await Promise.all(colorPromises);
   }
@@ -174,8 +179,6 @@ class App {
     try {
       if (this.cachedComponents.has("components/navbar")) {
         const cachedComponent = this.cachedComponents.get("components/navbar");
-        await cachedComponent.load(true);
-        fragment.appendChild(cachedComponent.component);
         this.loadedComponents.set(cachedComponent.path, cachedComponent);
       } else {
         const navbar = new Component(
@@ -223,10 +226,11 @@ class App {
 
   async unloadPage() {
     for (let component of this.loadedComponents.values()) {
-      component.unload();
+      if (!component.persistent) {
+        this.loadedComponents.delete(component.path);
+        component.unload();
+      }
     }
-
-    this.loadedComponents.clear();
   }
 
   async navigateTo(path) {
