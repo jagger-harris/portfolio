@@ -1,0 +1,10 @@
+.icon-container {
+  display: flex;
+  justify-content: center;
+  margin: 2rem;
+}
+
+.svg {
+  width: 16rem;
+  height: 16rem;
+}

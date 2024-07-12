@@ -2,6 +2,8 @@
 
 This is my portfolio built on pure HTML, CSS, and JavaScript with the intent of using no libraries. It is time to make the web less bloated, but still look nice!
 
+[Here](https://jagger-harris.github.io/portfolio/) is live version.
+
 ## Dependencies
 
 - No dependencies.
@@ -12,8 +14,10 @@ Clone the repository:
 
 ```shell
 git clone https://github.com/jagger-harris/portfolio.git
-cd portfolio
+cd portfolio/src
 ```
+
+Open `index.html`.
 
 ## Contributing
 
