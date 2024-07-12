@@ -59,7 +59,7 @@ p {
 }
 
 /* Container for margins and padding */
-#container {
+.container {
   margin: 0 auto;
   width: 64rem;
   padding-top: 16rem;

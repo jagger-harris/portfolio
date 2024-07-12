@@ -1,194 +1,173 @@
 class Component {
-  constructor(path, id, tag, persistent) {
-    this.path = path;
-    this.fullPath = `${path}/${path.split("/").pop()}`;
+  constructor(id, isRoute, isStatic) {
     this.id = id;
-    this.tag = tag;
-    this.persistent = persistent;
-    this.component = null;
-    this.css = null;
-    this.script = null;
+    this.isRoute = isRoute;
+    this.isStatic = isStatic;
+    this.path = null;
+    this.htmlNodes = null;
+    this.cssNode = null;
+    this.jsNode = null;
+    this.jsScript = null;
   }
 
-  static async fetchHTML(fullPath) {
-    const response = await fetch(`${fullPath}.html`);
+  async fetchText(path) {
+    const response = await fetch(path);
 
     if (!response.ok) {
-      throw new Error(`Failed to load HTML for ${fullPath}`);
+      throw new Error(`Failed to load file for ${path}`);
     }
 
-    return await response.text();
+    return response.text();
+  }
+
+  async loadHTML() {
+    if (!this.htmlNodes) {
+      const htmlText = await this.fetchText(`${this.path}.html`);
+      const parser = new DOMParser();
+      const htmlDocument = parser.parseFromString(htmlText, "text/html");
+      this.htmlNodes = Array.from(htmlDocument.body.children);
+    }
   }
 
   async loadCSS() {
-    return new Promise((resolve, reject) => {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = `${this.fullPath}.css`;
-
-      link.onload = () => {
-        this.css = link;
-        resolve();
-      };
-
-      link.onerror = () => {
-        reject(new Error(`Failed to load CSS for ${this.fullPath}`));
-      };
-
-      document.head.appendChild(link);
-    });
+    if (!this.cssNode) {
+      const cssText = await this.fetchText(`${this.path}.css`);
+      this.cssNode = document.createElement("style");
+      this.cssNode.textContent = cssText;
+    }
   }
 
-  loadScript() {
-    const script = document.createElement("script");
-    script.type = "text/javascript";
-    script.src = `${this.fullPath}.js`;
-    script.onload = () => {
-      this.script = window[`${this.fullPath.split("/").pop()}Script`];
-
-      if (this.script && typeof this.script.run === "function") {
-        this.script.run();
-      }
-    };
-
-    this.scriptElement = script;
-    document.body.appendChild(script);
+  async loadJS() {
+    if (!this.jsNode) {
+      const jsText = await this.fetchText(`${this.path}.js`);
+      this.jsNode = document.createElement("script");
+      this.jsNode.type = "text/javascript";
+      this.jsNode.textContent = jsText;
+    }
   }
 
-  async load(cached) {
-    if (cached) {
-      if (this.css) {
-        document.head.appendChild(this.css);
-      }
+  async load() {
+    this.path = `components/${this.id}/${this.id}`;
 
-      this.loadScript();
-
-      return;
+    if (this.isRoute) {
+      this.path = `routes/${this.id}/${this.id}`;
     }
 
     try {
-      const html = await Component.fetchHTML(this.fullPath);
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, "text/html");
-      const nodes = doc.body.childNodes;
-      const documentFragment = document.createDocumentFragment();
-      const component = document.createElement(this.tag);
-      component.id = this.id;
+      const htmlPromise = this.loadHTML();
+      const cssPromise = this.loadCSS();
+      const jsPromise = this.loadJS();
 
-      nodes.forEach((node) => documentFragment.appendChild(node));
-      component.appendChild(documentFragment);
-      this.component = component;
-
-      await this.loadCSS();
-      this.loadScript();
+      await Promise.all([htmlPromise, cssPromise, jsPromise]);
     } catch (error) {
-      console.error(`Failed to load component ${this.id}:`, error);
-    }
-  }
-
-  async unload() {
-    if (this.script) {
-      let scriptName = this.fullPath.split("/").pop();
-      this.script.execute = false;
-
-      if (this.script.cleanup) {
-        this.script.cleanup();
-      }
-
-      this.script = null;
-      window[
-        `${scriptName.charAt(0).toUpperCase() + scriptName.substring(1)}Script`
-      ] = null;
-      window[`${scriptName}Script`] = null;
-    }
-
-    if (this.component) {
-      this.component.remove();
-    }
-
-    if (this.css) {
-      this.css.remove();
-    }
-
-    if (this.scriptElement) {
-      this.scriptElement.remove();
+      console.log(error);
     }
   }
 }
 
 class App {
-  constructor() {
-    this.routes = {
-      "/": "routes/home",
-      "/projects": "routes/projects"
-    };
-    this.loadedComponents = new Map();
+  constructor(routes, staticComponents) {
+    this.routes = routes;
+    this.staticComponents = staticComponents;
+    this.drawnComponents = new Map();
     this.cachedComponents = new Map();
+    this.htmlFragment = document.createDocumentFragment();
+    this.cssFragment = document.createDocumentFragment();
+    this.jsFragment = document.createDocumentFragment();
     this.navigating = false;
   }
 
-  async colorSvgs() {
-    const svgObjects = document.querySelectorAll(".svg");
-    const textColor = getComputedStyle(document.documentElement)
-      .getPropertyValue("--text-color")
-      .trim();
-
-    const handleLoad = (svgObject, resolve) => () => {
-      const svgDoc = svgObject.contentDocument;
-      if (svgDoc && svgDoc.readyState === "complete") {
-        const svgElement = svgDoc.querySelector("svg");
-
-        if (svgElement) {
-          svgElement.setAttribute("fill", textColor);
-          svgObject.removeEventListener("load", handleLoad(svgObject, resolve));
-          resolve();
-        }
-      }
-    };
-
-    const colorSvg = async (svgObject) => {
-      return new Promise((resolve) => {
-        const onLoad = handleLoad(svgObject, resolve);
-        svgObject.addEventListener("load", onLoad);
-      });
-    };
-
-    const colorPromises = [];
-
-    svgObjects.forEach((svgObject) => colorPromises.push(colorSvg(svgObject)));
-
-    await Promise.all(colorPromises);
-  }
-
-  async addComponent(path, id, tag, persistent, documentFragment) {
-    try {
-      if (this.cachedComponents.has(path)) {
-        const cachedComponent = this.cachedComponents.get(path);
-
-        if (!persistent) {
-          await cachedComponent.load(true);
-          documentFragment.appendChild(cachedComponent.component);
+  erase() {
+    for (const drawnComponent of this.drawnComponents.values()) {
+      if (!drawnComponent.isStatic) {
+        if (drawnComponent.jsScript) {
+          drawnComponent.jsScript.cleanup();
         }
 
-        this.loadedComponents.set(cachedComponent.path, cachedComponent);
-        return true;
+        drawnComponent.htmlNodes.forEach((node) => node.remove());
+        drawnComponent.jsNode.remove();
+        drawnComponent.cssNode.remove();
+        this.drawnComponents.delete(drawnComponent.id);
       }
-
-      const component = new Component(path, id, tag, persistent);
-      await component.load();
-
-      documentFragment.appendChild(component.component);
-      this.loadedComponents.set(component.path, component);
-      this.cachedComponents.set(component.path, component);
-
-      return true;
-    } catch (error) {
-      return false;
     }
   }
 
-  async loadPage(path) {
-    /* Check if id exists for scrollTo */
+  async drawComponent(componentId, isRoute, isStatic, parentToReplace) {
+    if (this.drawnComponents.has(componentId)) {
+      return;
+    }
+
+    let componentToDraw = this.cachedComponents.get(componentId);
+
+    if (!componentToDraw) {
+      componentToDraw = new Component(
+        componentId,
+        isRoute,
+        isStatic,
+        parentToReplace
+      );
+      this.cachedComponents.set(componentId, componentToDraw);
+    }
+
+    if (!componentToDraw.htmlNodes) {
+      await componentToDraw.load();
+    }
+
+    if (
+      componentToDraw.isStatic &&
+      this.drawnComponents.get(componentToDraw.id)
+    ) {
+      return;
+    }
+
+    /* Used to replace child nodes for child components */
+    if (parentToReplace) {
+      parentToReplace.replaceWith(...componentToDraw.htmlNodes);
+    } else {
+      this.htmlFragment.append(...componentToDraw.htmlNodes);
+    }
+
+    this.cssFragment.appendChild(componentToDraw.cssNode);
+    this.jsFragment.appendChild(componentToDraw.jsNode);
+    this.drawnComponents.set(componentToDraw.id, componentToDraw);
+
+    for (const node of componentToDraw.htmlNodes) {
+      let childNodes = Array.from(node.querySelectorAll("[class^='$']"));
+
+      for (const childNode of childNodes) {
+        this.drawComponent(
+          childNode.className.split("$").pop(),
+          false,
+          false,
+          childNode
+        );
+      }
+    }
+  }
+
+  async draw(path) {
+    this.erase();
+
+    const staticDrawPromises = this.staticComponents.map((component) =>
+      this.drawComponent(component, false, true, false)
+    );
+
+    await Promise.all(staticDrawPromises);
+    await this.drawComponent(path, true, false, false);
+
+    document.head.appendChild(this.cssFragment);
+    document.body.appendChild(this.htmlFragment);
+    document.body.appendChild(this.jsFragment);
+  }
+
+  navigate(path) {
+    if (this.navigating) {
+      return;
+    }
+
+    this.navigating = true;
+
+    /* Used for scrolling to a specific element on a page */
     const targetElement = document.getElementById(path);
 
     if (targetElement) {
@@ -198,79 +177,27 @@ class App {
       return;
     }
 
-    await this.unloadPage();
-
-    const documentFragment = document.createDocumentFragment();
-    const mainElement = document.querySelector("main");
-
-    await this.addComponent(
-      "components/navbar",
-      "navbar",
-      "nav",
-      true,
-      documentFragment
-    );
-
-    let pageComponent = await this.addComponent(
-      this.routes[path],
-      "container",
-      "div",
-      false,
-      documentFragment
-    );
-
-    if (!pageComponent) {
-      let notFoundComponent = await this.addComponent(
-        "routes/notfound",
-        "container",
-        "div",
-        false,
-        documentFragment
-      );
-
-      if (!notFoundComponent) {
-        console.error("Error: Page not found component unable to load!");
-      }
+    if (this.routes[path]) {
+      this.draw(this.routes[path]);
+    } else {
+      this.draw("notfound");
     }
-
-    mainElement.appendChild(documentFragment);
-    this.colorSvgs();
-  }
-
-  async unloadPage() {
-    for (let component of this.loadedComponents.values()) {
-      if (!component.persistent) {
-        this.loadedComponents.delete(component.path);
-        component.unload();
-      }
-    }
-  }
-
-  async navigateTo(path) {
-    if (this.navigating) {
-      return;
-    }
-
-    this.navigating = true;
-
-    if (path.charAt(0) !== "/") {
-      await this.loadPage("/");
-    }
-
-    await this.loadPage(path);
 
     this.navigating = false;
   }
 
-  async run() {
-    window.addEventListener(
-      "hashchange",
-      async () =>
-        await this.navigateTo(window.location.hash.substring(1) || "/")
+  run() {
+    window.addEventListener("hashchange", () =>
+      this.navigate(window.location.hash.substring(1) || "/")
     );
-    await this.navigateTo(window.location.hash.substring(1) || "/");
+
+    this.navigate(window.location.hash.substring(1) || "/");
   }
 }
 
-var app = new App();
-document.addEventListener("DOMContentLoaded", async () => await app.run());
+const routes = {
+  "/": "home"
+};
+const staticComponents = ["navbar"];
+const app = new App(routes, staticComponents);
+document.addEventListener("DOMContentLoaded", () => app.run());

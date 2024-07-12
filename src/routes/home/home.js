@@ -95,4 +95,5 @@ var HomeScript = class {
   }
 };
 
-var homeScript = new HomeScript();
+let homeScript = new HomeScript();
+homeScript.run();
